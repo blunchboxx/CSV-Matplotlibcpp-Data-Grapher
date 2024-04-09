@@ -15,7 +15,7 @@ using namespace std;
 namespace plt = matplotlibcpp;
 namespace fs = std::filesystem;
 
-void readFile(int sampleNum, string path, vector<TestSample>& testObjectList)
+void readFile(int sampleNum, int yCol, int xCol, string path, vector<TestSample>& testObjectList)
 {
 	ifstream csvFile;
 	vector<float> xValues;
@@ -30,7 +30,6 @@ void readFile(int sampleNum, string path, vector<TestSample>& testObjectList)
 	{
 		cout << "Reading data from file " << path << "..." << endl;
 		string newLine, token;
-		string tempArray[17];
 
 		getline(csvFile, newLine);  // Get and discard header row
 
@@ -44,22 +43,13 @@ void readFile(int sampleNum, string path, vector<TestSample>& testObjectList)
 
 			while (getline(ss, token, ','))  // Loop through entire stream
 			{
-				/*if (count < 4)
-				{
-					cout << " Count: " << count << " token: " << token << endl;
-				}*/
 
-				if (count == 4) // Load (force) data
+				if (count == yCol) // Load (force) data
 				{
 					yValues.push_back(stof(token));
 				}
 
-				/*else if (count > 4 && count < 8)
-				{
-					continue;
-				}*/
-
-				else if (count == 8)
+				else if (count == xCol)
 				{
 					xValues.push_back(stof(token));
 				}
@@ -100,9 +90,8 @@ void graphObject(string path, vector<TestSample>& testObjectList)
 
 		// Plot line from given x and y data. Color is selected automatically.
 		plt::plot(nextSample._xDataValues, nextSample._yDataValues, { { "label", "tensile force" } });  // add the label f(x)
-		plt::title(fileName); //, { {"label", "log(x)"} }
-		plt::legend();
-		//plt::subplot(1, 1, 1);
+		plt::title(fileName); 
+		plt::legend(); // { {"label", "log(x)"} }
 		plt::xlabel("Displacement (mm)");
 		plt::ylabel("Force (N)");
 		//plt::xlim(0, 10 * 2); // Set x-axis range
@@ -113,61 +102,88 @@ void graphObject(string path, vector<TestSample>& testObjectList)
 
 		cout << "Graph " << nextSample._sampleNumber << " saved to folder." << endl;
 	}
+
+	cout << endl;
 }
 
 void getFileNames(string path, vector<string>& nameList)
 {
 	for (const auto& file : fs::directory_iterator(path)) {
-		//cout << file << endl;
-		//cout << typeid(file).name() << endl;
-		//string fileName = file.path().filename().generic_string();
+		
 		string fileName = file.path().generic_string();
+		fs::path filePath = fileName;
 
 		cout << "Filename : " << fileName << endl;
 
-		nameList.push_back(fileName);
+		if (filePath.extension() == ".csv")
+			nameList.push_back(fileName);
+		else
+			cout << fileName << " is invalid file type. File not added to queue. Use .csv type files only." << endl;
 	}
+}
+
+void readInput(string& inPath, string& outPath, int& xCol, int& yCol)
+{
+	cout << "Enter name of folder storing CSV files (type QUIT to exit): ";
+
+	cin >> inPath;
+	cout << endl;
+
+	if ((inPath != "QUIT") and (inPath != "quit") and (inPath != "Quit") and (inPath != "0"))
+	{
+		cout << "Enter name of folder to save graphs in: ";
+		cin >> outPath;
+		cout << endl;
+
+		cout << "Enter column number for x axis values (first column = 0): ";
+		cin >> xCol;
+		cout << endl;
+		cout << "Enter column number for y axis values (first column = 0): ";
+		cin >> yCol;
+		cout << endl;
+	}
+
+
 }
 
 int main()
 {
-	vector<string> tensileFileList;
-	//vector<string> torqueFileList;
-	//vector<string> stiffnessFileList;
+	vector<string> fileList;
 	vector<TestSample> testSampleVector;
+	string filePath;
+	string outputFilePath;
+	int _numCols = 0;
+	int _yCol = 0;
+	int _xCol = 0;
 
-	string tensilePath = "tensile";
-	//string torquePath = "torque";
-	//string stiffnessPath = "stiffness";
+	cout << "Welcome to the CSV Data Grapher!" << endl;
 
-	getFileNames(tensilePath, tensileFileList);
-	//getFileNames(torquePath, torqueFileList);
-	//getFileNames(stiffnessPath, stiffnessFileList);
+	readInput(filePath, outputFilePath, _xCol, _yCol);
 
-	//cout << "Number of Files: " << tensileFileList.size() << endl;
-
-	for (int i = 0; i < tensileFileList.size(); i++)
+	while ((filePath != "QUIT") and (filePath != "quit") and (filePath != "Quit") and (filePath != "0"))
 	{
-		readFile(i + 1, tensileFileList[i], testSampleVector);
+
+		getFileNames(filePath, fileList);
+
+		for (int i = 0; i < fileList.size(); i++)
+		{
+			readFile(i + 1, _yCol, _xCol, fileList[i], testSampleVector);
+		}
+
+		graphObject(outputFilePath, testSampleVector);
+
+		// Clear variables for next iteration
+		fileList.clear();
+		testSampleVector.clear();
+		filePath.clear();
+		outputFilePath.clear();
+
+		readInput(filePath, outputFilePath, _xCol, _yCol);
+
+		if ((filePath == "QUIT") or (filePath == "quit") or (filePath == "Quit") or (filePath == "0"))
+			return 0;
+
 	}
-
-	graphObject("outputs", testSampleVector);
-
-	/*
-	for (TestSample nextSample : testSampleVector) {
-		cout << "Sample Number: " << nextSample._sampleNumber << endl;
-		cout << "Value x: " << nextSample._xDataValues[7] << " Value y: " << nextSample._yDataValues[7] << endl;
-
-		string fileName = "outputs/Test Sample ";
-		fileName.append(to_string(nextSample._sampleNumber));
-		// Set the size of output image to 1200x780 pixels
-		plt::figure_size(1200, 780);
-		// Plot line from given x and y data. Color is selected automatically.
-		plt::plot(nextSample._xDataValues, nextSample._yDataValues);
-		plt::save(fileName);
-		cout << "Graph " << nextSample._sampleNumber << " saved to folder." << endl;
-	}
-	*/
 
 	return 0;
 }
